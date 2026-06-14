@@ -28,8 +28,5 @@ Navigate to the `skills/` directory to understand the rules, workflows, and arch
 ### 2. Review Generated Projects
 Check the `projects/` directory to see the quality and structure of the outputs. These files are ready for implementation or deployment.
 
-### 3. Learn the Workflow
-Read the [screencast_script.md](./screencast_script.md) to see a step-by-step demonstration of how these skills transform a simple brief into a professional project.
-
 ---
 *Built by Archy — Turning complex tasks into structured workflows.*
