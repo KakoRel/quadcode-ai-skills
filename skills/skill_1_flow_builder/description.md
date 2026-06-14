@@ -1,0 +1,1 @@
+Design multi-agent AI workflows with structured discovery. Use when you need to decompose complex tasks into coordinated agent roles with tools, data contracts, prompt templates, and error handling — and output a production-ready workflow specification.

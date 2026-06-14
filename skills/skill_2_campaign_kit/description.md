@@ -1,0 +1,1 @@
+Generate complete marketing campaign assets — copy, visuals, and video/sound — from a single brief. Delegates image generation to Lumi and video/sound to Sonic for production-ready multi-channel campaigns.

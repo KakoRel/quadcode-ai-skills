@@ -1,0 +1,125 @@
+---
+workflow:
+  name: Algebra II Socratic Tutor
+  version: "1.0"
+  description: "A high-scale, discovery-based tutoring system for Algebra II."
+  goal: "Guide students to solve problems themselves using Socratic questioning."
+  constraints:
+    budget_per_session: 0.10
+    latency_target: "<3s"
+    concurrency: 10000
+  compliance: "FERPA"
+
+agents:
+  - name: misconception_analyzer
+    role: "Detect specific Algebra II errors in student work in real-time."
+    type: "skills: quadcode.ai"
+    assigned_to: "auto"
+    system_prompt: |
+      You are a Math Error Specialist. Analyze the student's input for these specific Algebra II misconceptions:
+      - Sign errors (especially in the Quadratic Formula or distributing negatives).
+      - Order of operations (PEMDAS) violations.
+      - Incorrect exponent laws (e.g., (x+y)^2 = x^2 + y^2).
+      - Logarithm property confusion.
+    user_prompt_template: "Student Input: {student_input}\nCurrent Topic: {current_topic}"
+    output_schema:
+      type: "object"
+      properties:
+        misconception_detected: { type: "boolean" }
+        error_code: { type: "string", nullable: true }
+        technical_explanation: { type: "string", nullable: true }
+        confidence_score: { type: "number", minimum: 0, maximum: 1 }
+    validation:
+      - gate: "Strict JSON parsing"
+      - gate: "confidence_score > 0.7"
+      - retry_count: 1
+      - backoff: "immediate"
+
+  - name: socratic_tutor
+    role: "Lead the student to discovery using the Socratic method."
+    type: "skills: quadcode.ai"
+    assigned_to: "archy"
+    system_prompt: |
+      You are an expert Algebra II Socratic Tutor. Your goal is to guide the student to solve problems themselves by asking one targeted, scaffolding question at a time.
+      Rules:
+      1. NEVER provide the full solution or the next step directly.
+      2. Use LaTeX for all mathematical expressions.
+      3. If an error is flagged, ask a question that helps them find it.
+      4. Keep responses under 40 words.
+    user_prompt_template: |
+      Student Input: {student_input}
+      Analyzer Output: {analyzer_output}
+      Session History: {history}
+    output_schema:
+      type: "object"
+      properties:
+        tutor_response: { type: "string" }
+        scaffolding_level: { type: "integer", minimum: 1, maximum: 5 }
+        requires_visual: { type: "boolean" }
+    validation:
+      - gate: "Response contains question mark"
+      - gate: "No answer leak"
+      - retry_count: 2
+
+  - name: visualizer_lumi
+    role: "Generate pedagogical math visualizations."
+    type: "tools: designer"
+    assigned_to: "lumi"
+    system_prompt: "You are a Math Visualization Designer. Create clear, labeled diagrams for Algebra II concepts."
+    tools:
+      - alias: "image_edit_essentials"
+        purpose: "Generate function plots and diagrams"
+    output_schema:
+      type: "object"
+      properties:
+        asset_url: { type: "string" }
+        alt_text: { type: "string" }
+
+  - name: curriculum_manager
+    role: "Track mastery and manage the learning path asynchronously."
+    type: "skills: quadcode.ai"
+    assigned_to: "auto"
+    system_prompt: "You are a Curriculum Strategist. Review the session log to update the student's mastery map."
+    output_schema:
+      type: "object"
+      properties:
+        mastery_score: { type: "integer", minimum: 0, maximum: 100 }
+        status: { enum: ["REINFORCE", "MASTERY_ACHIEVED", "MOVE_ON"] }
+        next_topic: { type: "string" }
+    validation:
+      - gate: "Score range check"
+      - retry_count: 0
+
+data_flow:
+  - step: 1
+    action: "Parallel call to misconception_analyzer and socratic_tutor"
+  - step: 2
+    action: "Inject analyzer_output into socratic_tutor context"
+  - step: 3
+    action: "Conditional call to visualizer_lumi if requires_visual is true"
+  - step: 4
+    action: "Return response to UI"
+  - step: 5
+    action: "Async call to curriculum_manager to update DB"
+
+error_handling:
+  global_timeout: "3s"
+  strategies:
+    - failure: "LLM_TIMEOUT"
+      action: "Retry 1x with lower max_tokens, then fallback to static hint"
+    - failure: "BUDGET_EXCEEDED"
+      action: "Switch to cached/template-based responses"
+    - failure: "ANSWER_LEAK"
+      action: "Regenerate with 'Strict Socratic' penalty prompt"
+
+deployment:
+  infrastructure: "AWS Lambda / Vercel Functions"
+  state_management: "Redis (Upstash) for session caching"
+  database: "Supabase (PostgreSQL) for FERPA compliance"
+  monitoring: ["p95_latency", "cost_per_session", "error_rate"]
+
+cost_analysis:
+  llm_cost: 0.005
+  visuals_cost: 0.003
+  infra_cost: 0.012
+  total_per_session: 0.020
